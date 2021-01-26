@@ -91,6 +91,8 @@
 
 #define UNUSED(expr) do { (void)(expr); } while (0)
 
+#define PERF_UPROBE_REF_CTR_OFFSET_SHIFT 32
+
 struct bpf_helper {
   char *name;
   char *required_version;
@@ -249,6 +251,16 @@ static struct bpf_helper helpers[] = {
   {"seq_printf_btf", "5.10"},
   {"skb_cgroup_classid", "5.10"},
   {"redirect_neigh", "5.10"},
+  {"per_cpu_ptr", "5.10"},
+  {"this_cpu_ptr", "5.10"},
+  {"redirect_peer", "5.10"},
+  {"task_storage_get", "5.11"},
+  {"task_storage_delete", "5.11"},
+  {"get_current_task_btf", "5.11"},
+  {"bprm_opts_set", "5.11"},
+  {"ktime_get_coarse_ns", "5.11"},
+  {"ima_inode_hash", "5.11"},
+  {"sock_from_file", "5.11"},
 };
 
 static uint64_t ptr_to_u64(void *ptr)
@@ -595,6 +607,9 @@ int bcc_prog_load_xattr(struct bpf_load_program_attr *attr, int prog_len,
     } else if (strncmp(attr->name, "lsm__", 5) == 0) {
       name_offset = 5;
       expected_attach_type = BPF_LSM_MAC;
+    } else if (strncmp(attr->name, "bpf_iter__", 10) == 0) {
+      name_offset = 10;
+      expected_attach_type = BPF_TRACE_ITER;
     }
 
     if (attr->prog_type == BPF_PROG_TYPE_TRACING ||
@@ -835,7 +850,8 @@ static int bpf_get_retprobe_bit(const char *event_type)
  * the [k,u]probe. This function tries to create pfd with the perf_kprobe PMU.
  */
 static int bpf_try_perf_event_open_with_probe(const char *name, uint64_t offs,
-             int pid, const char *event_type, int is_return)
+             int pid, const char *event_type, int is_return,
+             uint64_t ref_ctr_offset)
 {
   struct perf_event_attr attr = {};
   int type = bpf_find_probe_type(event_type);
@@ -848,6 +864,7 @@ static int bpf_try_perf_event_open_with_probe(const char *name, uint64_t offs,
   attr.wakeup_events = 1;
   if (is_return)
     attr.config |= 1 << is_return_bit;
+  attr.config |= (ref_ctr_offset << PERF_UPROBE_REF_CTR_OFFSET_SHIFT);
 
   /*
    * struct perf_event_attr in latest perf_event.h has the following
@@ -1016,7 +1033,8 @@ error:
 // see bpf_try_perf_event_open_with_probe().
 static int bpf_attach_probe(int progfd, enum bpf_probe_attach_type attach_type,
                             const char *ev_name, const char *config1, const char* event_type,
-                            uint64_t offset, pid_t pid, int maxactive)
+                            uint64_t offset, pid_t pid, int maxactive,
+                            uint32_t ref_ctr_offset)
 {
   int kfd, pfd = -1;
   char buf[PATH_MAX], fname[256];
@@ -1025,7 +1043,8 @@ static int bpf_attach_probe(int progfd, enum bpf_probe_attach_type attach_type,
   if (maxactive <= 0)
     // Try create the [k,u]probe Perf Event with perf_event_open API.
     pfd = bpf_try_perf_event_open_with_probe(config1, offset, pid, event_type,
-                                             attach_type != BPF_PROBE_ENTRY);
+                                             attach_type != BPF_PROBE_ENTRY,
+                                             ref_ctr_offset);
 
   // If failed, most likely Kernel doesn't support the perf_kprobe PMU
   // (e12f03d "perf/core: Implement the 'perf_kprobe' PMU") yet.
@@ -1089,17 +1108,17 @@ int bpf_attach_kprobe(int progfd, enum bpf_probe_attach_type attach_type,
 {
   return bpf_attach_probe(progfd, attach_type,
                           ev_name, fn_name, "kprobe",
-                          fn_offset, -1, maxactive);
+                          fn_offset, -1, maxactive, 0);
 }
 
 int bpf_attach_uprobe(int progfd, enum bpf_probe_attach_type attach_type,
                       const char *ev_name, const char *binary_path,
-                      uint64_t offset, pid_t pid)
+                      uint64_t offset, pid_t pid, uint32_t ref_ctr_offset)
 {
 
   return bpf_attach_probe(progfd, attach_type,
                           ev_name, binary_path, "uprobe",
-                          offset, pid, -1);
+                          offset, pid, -1, ref_ctr_offset);
 }
 
 static int bpf_detach_probe(const char *ev_name, const char *event_type)
@@ -1462,4 +1481,19 @@ int bpf_poll_ringbuf(struct ring_buffer *rb, int timeout_ms) {
  * consumed, or a negative number if any callbacks returned an error. */
 int bpf_consume_ringbuf(struct ring_buffer *rb) {
     return ring_buffer__consume(rb);
+}
+
+int bcc_iter_attach(int prog_fd, union bpf_iter_link_info *link_info,
+                    uint32_t link_info_len)
+{
+    DECLARE_LIBBPF_OPTS(bpf_link_create_opts, link_create_opts);
+
+    link_create_opts.iter_info = link_info;
+    link_create_opts.iter_info_len = link_info_len;
+    return bpf_link_create(prog_fd, 0, BPF_TRACE_ITER, &link_create_opts);
+}
+
+int bcc_iter_create(int link_fd)
+{
+    return bpf_iter_create(link_fd);
 }

@@ -1,11 +1,11 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 from bcc import BPF
 from ctypes import *
 import argparse
 import os
 from time import sleep,time,localtime,asctime
-import types
 
 # pre defines -------------------------------
 ROOT_PATH = "/sys/class/net"
@@ -28,7 +28,7 @@ def to_str(num):
     elif num > 1000:
         return str(round(num/1024.0, 2)) + 'K'
     else:
-        if type(num) == types.FloatType:
+        if isinstance(num, float):
             return str(round(num, 2))
         else:
             return str(num)
@@ -50,9 +50,10 @@ def print_table(table, qnum):
         headers.append("BPS")
         headers.append("PPS")
 
+    print(" ", end="")
     for hd in headers:
-		print(hd.center(COL_WIDTH)),
-    print
+        print( "%-11s" % hd, end="")
+    print()
 
     # ------- calculates --------------
     qids=[]
@@ -97,7 +98,7 @@ def print_table(table, qnum):
         avg = 0
         if data[2] != 0:
             avg = data[1] / data[2]
-        print("%5d %11s %10s %10s %10s %10s %10s" % (
+        print(" %-11d%-11s%-11s%-11s%-11s%-11s%-11s" % (
             data[0],
             to_str(avg),
             to_str(data[3]),
@@ -105,34 +106,34 @@ def print_table(table, qnum):
             to_str(data[5]),
             to_str(data[6]),
             to_str(data[7])
-        )),
+        ), end="")
         if args.throughput:
             BPS = data[1] / print_interval
             PPS = data[2] / print_interval
-            print("%10s %10s" % (
+            print("%-11s%-11s" % (
                 to_str(BPS),
                 to_str(PPS)
             ))
         else:
-            print
+            print()
     
     # ------- print total --------------
-    print(" Total %10s %10s %10s %10s %10s %10s" % (
+    print(" Total      %-11s%-11s%-11s%-11s%-11s%-11s" % (
         to_str(tAVG),
         to_str(tGroup[0]),
         to_str(tGroup[1]),
         to_str(tGroup[2]),
         to_str(tGroup[3]),
         to_str(tGroup[4])
-    )),
+    ), end="")
 
     if args.throughput:
-        print("%10s %10s" % (
+        print("%-11s%-11s" % (
             to_str(tBPS),
             to_str(tPPS)
         ))
     else:
-        print
+        print()
 
 
 def print_result(b):
@@ -152,7 +153,7 @@ def print_result(b):
     if args.throughput:
         print("-"*95)
     else:
-        print("-"*76)
+        print("-"*77)
 
 ############## specify network interface #################
 parser = argparse.ArgumentParser(description="")
@@ -180,7 +181,7 @@ if len(dev_name) > IFNAMSIZ-1:
 
 print_interval = args.interval + 0.0
 if print_interval == 0:
-    print "print interval must be non-zero"
+    print ("print interval must be non-zero")
     exit()
 
 ################ get number of queues #####################
@@ -188,7 +189,7 @@ tx_num = 0
 rx_num = 0
 path = ROOT_PATH + "/" + dev_name + "/queues"
 if not os.path.exists(path):
-	print "Net interface", dev_name, "does not exits."
+	print ("Net interface", dev_name, "does not exits.")
 	exit()
 
 list = os.listdir(path)
@@ -199,7 +200,7 @@ for s in list:
         tx_num += 1
 
 if tx_num > MAX_QUEUE_NUM or rx_num > MAX_QUEUE_NUM:
-    print "number of queues over 1024 is not supported."
+    print ("number of queues over 1024 is not supported.")
     exit()
 
 ################## start tracing ##################
@@ -207,7 +208,7 @@ b = BPF(src_file = EBPF_FILE)
 # --------- set hash array --------
 devname_map = b['name_map']
 _name = Devname()
-_name.name = dev_name
+_name.name = dev_name.encode()
 devname_map[0] = _name
 
 while 1:

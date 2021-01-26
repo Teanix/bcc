@@ -16,10 +16,12 @@ APPS = \
 	biostacks \
 	bitesize \
 	cpudist \
+	cpufreq \
 	drsnoop \
 	execsnoop \
 	filelife \
 	hardirqs \
+	llcstat \
 	numamove \
 	opensnoop \
 	readahead \

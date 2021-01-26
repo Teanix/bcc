@@ -2,9 +2,10 @@
 
 * [Kernel Configuration](#kernel-configuration)
 * [Packages](#packages)
+  - [Debian](#debian--binary)
   - [Ubuntu](#ubuntu---binary)
   - [Fedora](#fedora---binary)
-  - [Arch](#arch---aur)
+  - [Arch](#arch---binary)
   - [Gentoo](#gentoo---portage)
   - [openSUSE](#opensuse---binary)
   - [RHEL](#rhel---binary)
@@ -19,6 +20,7 @@
   - [Centos](#centos---source)
   - [Amazon Linux](#amazon-linux---source)
   - [Alpine](#alpine---source)
+  - [Arch](#arch---source)
 * [Older Instructions](#older-instructions)
 
 ## Kernel Configuration
@@ -57,6 +59,10 @@ Kernel compile flags can usually be checked by looking at `/proc/config.gz` or
 `/boot/config-<kernel-version>`.
 
 # Packages
+
+## Debian - Binary
+
+`bcc` and its tools are available in the standard Debian main repository, from the source package [bpfcc](https://packages.debian.org/source/sid/bpfcc) under the names `bpfcc-tools`, `python-bpfcc`, `libbpfcc` and `libbpfcc-dev`.
 
 ## Ubuntu - Binary
 
@@ -160,15 +166,12 @@ echo -e '[iovisor]\nbaseurl=https://repo.iovisor.org/yum/main/f27/$basearch\nena
 sudo dnf install bcc-tools kernel-devel-$(uname -r) kernel-headers-$(uname -r)
 ```
 
-## Arch - AUR
+## Arch - Binary
 
-Upgrade the kernel to minimum 4.3.1-1 first; the ```CONFIG_BPF_SYSCALL=y``` configuration was not added until [this kernel release](https://bugs.archlinux.org/task/47008).
-
-Install these packages using any AUR helper such as [pacaur](https://aur.archlinux.org/packages/pacaur), [yaourt](https://aur.archlinux.org/packages/yaourt), [cower](https://aur.archlinux.org/packages/cower), etc.:
+bcc is available in the standard Arch repos, so it can be installed with the `pacman` command:
 ```
-bcc bcc-tools python-bcc
+# pacman -S bcc bcc-tools python-bcc
 ```
-All build and install dependencies are listed [in the PKGBUILD](https://aur.archlinux.org/cgit/aur.git/tree/PKGBUILD?h=bcc) and should install automatically.
 
 ## Gentoo - Portage
 
@@ -323,7 +326,7 @@ apt-get -t jessie-backports install linux-base linux-image-4.9.0-0.bpo.2-amd64 l
 apt-get install debhelper cmake libllvm3.8 llvm-3.8-dev libclang-3.8-dev \
   libelf-dev bison flex libedit-dev clang-format-3.8 python python-netaddr \
   python-pyroute2 luajit libluajit-5.1-dev arping iperf netperf ethtool \
-  devscripts zlib1g-dev libfl-dev
+  devscripts zlib1g-dev libfl-dev python-dnslib python-cachetools
 ```
 
 #### Sudo
@@ -383,9 +386,9 @@ sudo apt-get update
 sudo apt-get -y install bison build-essential cmake flex git libedit-dev \
   libllvm6.0 llvm-6.0-dev libclang-6.0-dev python zlib1g-dev libelf-dev
 
-# For Eoan (19.10)
+# For Eoan (19.10) or Focal (20.04.1 LTS)
 sudo apt install -y bison build-essential cmake flex git libedit-dev \
-  libllvm7 llvm-7-dev libclang-7-dev python zlib1g-dev libelf-dev
+  libllvm7 llvm-7-dev libclang-7-dev python zlib1g-dev libelf-dev libfl-dev
 
 # For other versions
 sudo apt-get -y install bison build-essential cmake flex git libedit-dev \
@@ -417,7 +420,7 @@ popd
 ```
 sudo dnf install -y bison cmake ethtool flex git iperf libstdc++-static \
   python-netaddr python-pip gcc gcc-c++ make zlib-devel \
-  elfutils-libelf-devel
+  elfutils-libelf-devel python-cachetools
 sudo dnf install -y luajit luajit-devel  # for Lua support
 sudo dnf install -y \
   http://repo.iovisor.org/yum/extra/mageia/cauldron/x86_64/netperf-2.7.0-1.mga6.x86_64.rpm
@@ -546,7 +549,7 @@ Tested on Amazon Linux AMI release 2018.03 (kernel 4.14.47-56.37.amzn1.x86_64)
 # enable epel to get iperf, luajit, luajit-devel, cmake3 (cmake3 is required to support c++11)
 sudo yum-config-manager --enable epel
 
-sudo yum install -y bison cmake3 ethtool flex git iperf libstdc++-static python-netaddr gcc gcc-c++ make zlib-devel elfutils-libelf-devel
+sudo yum install -y bison cmake3 ethtool flex git iperf libstdc++-static python-netaddr python-cachetools gcc gcc-c++ make zlib-devel elfutils-libelf-devel
 sudo yum install -y luajit luajit-devel
 sudo yum install -y http://repo.iovisor.org/yum/extra/mageia/cauldron/x86_64/netperf-2.7.0-1.mga6.x86_64.rpm
 sudo pip install pyroute2
@@ -588,7 +591,7 @@ sudo /usr/share/bcc/tools/execsnoop
 # enable epel to get iperf, luajit, luajit-devel, cmake3 (cmake3 is required to support c++11)
 sudo yum-config-manager --enable epel
 
-sudo yum install -y bison cmake3 ethtool flex git iperf libstdc++-static python-netaddr gcc gcc-c++ make zlib-devel elfutils-libelf-devel
+sudo yum install -y bison cmake3 ethtool flex git iperf libstdc++-static python-netaddr python-cachetools gcc gcc-c++ make zlib-devel elfutils-libelf-devel
 sudo yum install -y luajit luajit-devel
 sudo yum install -y http://repo.iovisor.org/yum/extra/mageia/cauldron/x86_64/netperf-2.7.0-1.mga6.x86_64.rpm
 sudo pip install pyroute2
@@ -649,6 +652,30 @@ ln -s $(which python3) /usr/bin/python
 
 ```
 sudo /usr/share/bcc/tools/execsnoop
+```
+
+## Arch - Source
+
+### Install dependencies
+
+```
+pacman -S cmake clang llvm flex bison python
+```
+
+### Build bcc
+
+```
+git clone https://github.com/iovisor/bcc.git
+pushd .
+mkdir bcc/build
+cd bcc/build
+cmake .. -DPYTHON_CMD=python3 # for python3 support
+make -j$(nproc)
+sudo make install
+cd src/python
+make -j$(nproc)
+sudo make install
+popd
 ```
 
 # Older Instructions
