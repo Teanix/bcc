@@ -154,7 +154,7 @@ Arguments are specified on the function declaration: kprobe__*kernel_function_na
 For example:
 
 ```C
-int kprobe__tcp_v4_connect(struct pt_regs *ctx, struct sock *sk)
+int kprobe__tcp_v4_connect(struct pt_regs *ctx, struct sock *sk) {
     [...]
 }
 ```
@@ -1165,7 +1165,7 @@ BPF_ARRAY_OF_MAPS(maps_array, "ex1", 10);
 
 ### 15. BPF_HASH_OF_MAPS
 
-Syntax: ```BPF_HASH_OF_MAPS(name, inner_map_name, size)```
+Syntax: ```BPF_HASH_OF_MAPS(name, key_type, inner_map_name, size)```
 
 This creates a hash map with a map-in-map type (BPF_MAP_TYPE_HASH_OF_MAPS) map named ```name``` with ```size``` entries. The inner map meta data is provided by map ```inner_map_name``` and can be most of array or hash maps except ```BPF_MAP_TYPE_PROG_ARRAY```, ```BPF_MAP_TYPE_CGROUP_STORAGE``` and ```BPF_MAP_TYPE_PERCPU_CGROUP_STORAGE```.
 
@@ -1173,7 +1173,7 @@ For example:
 ```C
 BPF_ARRAY(ex1, int, 1024);
 BPF_ARRAY(ex2, int, 1024);
-BPF_HASH_OF_MAPS(maps_hash, "ex1", 10);
+BPF_HASH_OF_MAPS(maps_hash, struct custom_key, "ex1", 10);
 ```
 
 ### 16. BPF_STACK
@@ -1304,6 +1304,10 @@ Examples in situ:
 Syntax: ```map.increment(key[, increment_amount])```
 
 Increments the key's value by `increment_amount`, which defaults to 1. Used for histograms.
+
+```map.increment()``` are not atomic. In the concurrency case. If you want more accurate results, use ```map.atomic_increment()``` instead of ```map.increment()```. The overhead of ```map.increment()``` and ```map.atomic_increment()``` is similar.
+
+Note. When using ```map.atomic_increment()``` to operate on a BPF map of type ```BPF_MAP_TYPE_HASH```, ```map.atomic_increment()``` does not guarantee the atomicity of the operation when the specified key does not exist.
 
 Examples in situ:
 [search /examples](https://github.com/iovisor/bcc/search?q=increment+path%3Aexamples&type=Code),
